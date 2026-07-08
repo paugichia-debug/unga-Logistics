@@ -11,5 +11,6 @@ if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
 }
 
-echo "Connected successfully!";
+// Remove this line - it causes the header error!
+// echo "Connected successfully!";
 ?>
