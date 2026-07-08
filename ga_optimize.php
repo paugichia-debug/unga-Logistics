@@ -71,6 +71,10 @@ if (isset($_POST['run_ga'])) {
         $vehicle_list[] = $row;
     }
     
+    // Debug
+    echo "Deliveries found: " . count($delivery_list) . "<br>";
+    echo "Vehicles found: " . count($vehicle_list) . "<br>";
+    
     if (count($delivery_list) > 0 && count($vehicle_list) > 0) {
         $tempRoutes = [];
         
