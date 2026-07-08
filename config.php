@@ -1,15 +1,13 @@
 <?php
-$url = getenv('DATABASE_URL');
-if (!$url) {
-    die("DATABASE_URL not set");
-}
+$host = getenv('DB_HOST');
+$user = getenv('DB_USER');
+$password = getenv('DB_PASSWORD');
+$database = getenv('DB_NAME');
+$port = getenv('DB_PORT') ?: 3306;
 
-$parts = parse_url($url);
-$host = $parts['host'];
-$port = $parts['port'];
-$user = $parts['user'];
-$password = $parts['pass'];
-$database = ltrim($parts['path'], '/');
+if (!$host || !$user || !$database) {
+    die("Database variables not set. Check DB_HOST, DB_USER, DB_NAME");
+}
 
 $conn = mysqli_connect($host, $user, $password, $database, $port);
 
