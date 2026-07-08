@@ -7,7 +7,6 @@ COPY . /var/www/html/
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
-EXPOSE 80
+EXPOSE 8080
 
-# Use PHP's built-in server (no Apache MPM issues)
-CMD ["php", "-S", "0.0.0.0:80", "-t", "/var/www/html"]
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "/var/www/html"]
