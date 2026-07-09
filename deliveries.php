@@ -57,7 +57,7 @@ include 'header.php';
 <div class="glass-card">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
         <h3 style="margin: 0; color: #ffffff;">📦 Delivery Management</h3>
-        <button onclick="openModal()" class="btn" style="background: #d4af37; color: #1a202c; padding: 8px 20px;">+ Add New Delivery</button>
+        <button onclick="openModal()" class="btn" style="background: #d4af37; color: #1a202c; padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer;">+ Add New Delivery</button>
     </div>
     
     <div class="table-container">
@@ -122,7 +122,7 @@ include 'header.php';
         </div>
         <form id="addDeliveryForm">
             <label style="color: rgba(255,255,255,0.7); font-size: 13px; display: block; margin-bottom: 5px;">Customer *</label>
-            <div class="autocomplete-container">
+            <div class="autocomplete-container" style="position: relative;">
                 <input type="text" id="customerSearch" placeholder="Type customer name..." autocomplete="off" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #ffffff; padding: 10px; border-radius: 8px; width: 100%;">
                 <input type="hidden" id="customer_id" name="customer_id" required>
                 <div id="autocompleteResults" class="autocomplete-results" style="display: none; background: #2d3748; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; max-height: 200px; overflow-y: auto; position: absolute; width: 100%; z-index: 1001;"></div>
