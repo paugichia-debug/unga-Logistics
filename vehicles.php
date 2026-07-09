@@ -69,7 +69,6 @@ include 'header.php';
         <button onclick="document.getElementById('addForm').style.display='block'" class="btn" style="background: #d4af37; color: #1a202c; padding: 8px 20px;">+ Add Vehicle</button>
     </div>
     
-    <!-- Add/Edit Form -->
     <div id="addForm" class="glass-card" style="display: <?php echo $edit_vehicle ? 'block' : 'none'; ?>; margin-bottom: 15px; padding: 20px;">
         <h3 style="color: #ffffff; margin-bottom: 15px;"><?php echo $edit_vehicle ? 'Edit Vehicle' : 'Add New Vehicle'; ?></h3>
         <form method="POST">
@@ -131,9 +130,9 @@ include 'header.php';
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Plate Number</th>
+                    <th>Plate</th>
                     <th>Type</th>
-                    <th>Capacity (t)</th>
+                    <th>Capacity</th>
                     <th>Driver</th>
                     <th>Status</th>
                     <th>Fixed Cost</th>
@@ -154,7 +153,7 @@ include 'header.php';
                     <td><?php echo number_format($row['capacity_tonnes']); ?> t</td>
                     <td><?php echo $row['driver_name'] ?? '—'; ?></td>
                     <td>
-                        <span style="display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 12px; background: <?php echo $row['status'] == 'available' ? 'rgba(72, 187, 120, 0.2)' : ($row['status'] == 'maintenance' ? 'rgba(229, 62, 62, 0.2)' : 'rgba(66, 153, 225, 0.2)'); ?>; color: <?php echo $row['status'] == 'available' ? '#68d391' : ($row['status'] == 'maintenance' ? '#fc8181' : '#63b3ed'); ?>;">
+                        <span style="display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 12px; background: <?php echo $row['status'] == 'available' ? 'rgba(72,187,120,0.2)' : 'rgba(229,62,62,0.2)'; ?>; color: <?php echo $row['status'] == 'available' ? '#68d391' : '#fc8181'; ?>;">
                             <?php echo ucfirst($row['status']); ?>
                         </span>
                     </td>
@@ -162,13 +161,9 @@ include 'header.php';
                     <td>KES <?php echo number_format($row['cost_per_km'], 2); ?></td>
                     <td>
                         <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                            <?php if($row['status'] == 'available'): ?>
-                                <a href="vehicles.php?toggle=<?php echo $row['id']; ?>" class="btn btn-warning btn-sm" style="padding: 3px 10px; font-size: 11px; background: rgba(237, 137, 54, 0.2); color: #f6ad55; border: 1px solid rgba(237, 137, 54, 0.2);">Maint</a>
-                            <?php else: ?>
-                                <a href="vehicles.php?toggle=<?php echo $row['id']; ?>" class="btn btn-sm" style="padding: 3px 10px; font-size: 11px;">Active</a>
-                            <?php endif; ?>
+                            <a href="vehicles.php?toggle=<?php echo $row['id']; ?>" class="btn btn-sm" style="padding: 3px 10px; font-size: 11px;"><?php echo $row['status'] == 'available' ? 'Maint' : 'Active'; ?></a>
                             <a href="vehicles.php?edit=<?php echo $row['id']; ?>" class="btn btn-sm" style="padding: 3px 10px; font-size: 11px;">Edit</a>
-                            <a href="vehicles.php?delete=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm" style="padding: 3px 10px; font-size: 11px; background: rgba(229, 62, 62, 0.2); color: #fc8181; border: 1px solid rgba(229, 62, 62, 0.2);" onclick="return confirm('Delete this vehicle?')">Del</a>
+                            <a href="vehicles.php?delete=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm" style="padding: 3px 10px; font-size: 11px; background: rgba(229,62,62,0.2); color: #fc8181;" onclick="return confirm('Delete?')">Del</a>
                         </div>
                     </td>
                 </tr>
