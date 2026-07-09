@@ -51,7 +51,7 @@ function getBestVehicle($weight, $vehicles) {
 }
 
 // ============================================
-// DIRECTION-BASED GROUPING (NEW)
+// DIRECTION-BASED GROUPING (FIXED)
 // ============================================
 
 function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
@@ -59,13 +59,14 @@ function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
     foreach ($deliveries as &$d) {
         $d['bearing'] = calculateBearing($depotLat, $depotLng, $d['lat'], $d['lng']);
         $d['distance'] = calculateDistance($depotLat, $depotLng, $d['lat'], $d['lng']);
-        $d['rounded_angle'] = round($d['bearing'] / $threshold) * $threshold;
+        // FIXED: Cast to int to avoid float precision warning
+        $d['rounded_angle'] = (int)round($d['bearing'] / $threshold) * $threshold;
     }
     
     // Step 2: Initial grouping by rounded angle
     $initialGroups = [];
     foreach ($deliveries as $d) {
-        $key = $d['rounded_angle'];
+        $key = (string)$d['rounded_angle']; // Use string key to avoid float issues
         if (!isset($initialGroups[$key])) {
             $initialGroups[$key] = [];
         }
@@ -75,6 +76,8 @@ function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
     // Step 3: Merge adjacent groups if within threshold
     $finalGroups = [];
     $sortedAngles = array_keys($initialGroups);
+    // Convert to int for sorting
+    $sortedAngles = array_map('intval', $sortedAngles);
     sort($sortedAngles);
     
     foreach ($sortedAngles as $angle) {
@@ -87,7 +90,7 @@ function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
             }
             
             if ($diff <= $threshold) {
-                $group['stops'] = array_merge($group['stops'], $initialGroups[$angle]);
+                $group['stops'] = array_merge($group['stops'], $initialGroups[(string)$angle]);
                 // Recalculate average angle
                 $totalAngle = 0;
                 foreach ($group['stops'] as $s) {
@@ -102,7 +105,7 @@ function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
         if (!$merged) {
             $finalGroups[] = [
                 'angle' => $angle,
-                'stops' => $initialGroups[$angle]
+                'stops' => $initialGroups[(string)$angle]
             ];
         }
     }
