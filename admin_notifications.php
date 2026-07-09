@@ -31,8 +31,11 @@ if (isset($_GET['read'])) {
     exit();
 }
 
-// Get all notifications
-$notifications = mysqli_query($conn, "SELECT * FROM notifications ORDER BY created_at DESC");
+// Get all notifications with delivery info
+$notifications = mysqli_query($conn, "SELECT n.*, d.delivery_code, d.id as delivery_id 
+    FROM notifications n 
+    LEFT JOIN deliveries d ON n.delivery_id = d.id 
+    ORDER BY n.created_at DESC");
 $unread_result = mysqli_query($conn, "SELECT COUNT(*) as count FROM notifications WHERE status = 'unread'");
 $unread = mysqli_fetch_assoc($unread_result);
 $unread_count = $unread['count'];
@@ -56,13 +59,52 @@ include 'header.php';
     </div>
     
     <?php if(mysqli_num_rows($notifications) > 0): ?>
-        <?php while($row = mysqli_fetch_assoc($notifications)): ?>
-            <div style="background: <?php echo $row['status'] == 'unread' ? 'rgba(66, 153, 225, 0.15)' : 'rgba(255,255,255,0.05)'; ?>; border-left: <?php echo $row['status'] == 'unread' ? '4px solid #4299e1' : '4px solid transparent'; ?>; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div style="flex: 1;">
+        <?php while($row = mysqli_fetch_assoc($notifications)): 
+            // Determine link based on notification type
+            $link = '#';
+            $link_style = '';
+            
+            // Check if notification contains delivery code
+            if (strpos($row['message'], '✅ Delivery') !== false && isset($row['delivery_id']) && $row['delivery_id'] > 0) {
+                $link = 'view_delivery.php?id=' . $row['delivery_id'];
+                $link_style = 'cursor: pointer;';
+            } elseif (strpos($row['message'], '⚠️') !== false) {
+                $link = 'admin_issues.php';
+                $link_style = 'cursor: pointer;';
+            } elseif (strpos($row['message'], 'New delivery assigned') !== false && isset($row['delivery_id']) && $row['delivery_id'] > 0) {
+                $link = 'view_delivery.php?id=' . $row['delivery_id'];
+                $link_style = 'cursor: pointer;';
+            }
+        ?>
+            <div onclick="window.location.href='<?php echo $link; ?>'" 
+                 style="background: <?php echo $row['status'] == 'unread' ? 'rgba(66, 153, 225, 0.15)' : 'rgba(255,255,255,0.05)'; ?>; 
+                        border-left: <?php echo $row['status'] == 'unread' ? '4px solid #4299e1' : '4px solid transparent'; ?>; 
+                        border-radius: 8px; 
+                        padding: 15px; 
+                        margin-bottom: 10px; 
+                        display: flex; 
+                        justify-content: space-between; 
+                        align-items: center; 
+                        flex-wrap: wrap; 
+                        gap: 10px;
+                        <?php echo $link_style; ?>
+                        transition: all 0.3s;
+                        <?php if($link != '#'): ?>
+                        transition: all 0.3s;
+                        <?php endif; ?>"
+                 <?php if($link != '#'): ?>
+                 onmouseover="this.style.background='<?php echo $row['status'] == 'unread' ? 'rgba(66, 153, 225, 0.25)' : 'rgba(255,255,255,0.12)'; ?>';"
+                 onmouseout="this.style.background='<?php echo $row['status'] == 'unread' ? 'rgba(66, 153, 225, 0.15)' : 'rgba(255,255,255,0.05)'; ?>';"
+                 <?php endif; ?>>
+                
+                <div style="flex: 1; <?php echo $link != '#' ? 'cursor: pointer;' : ''; ?>">
                     <div style="color: #ffffff; font-size: 14px; margin-bottom: 5px;">
                         <?php echo htmlspecialchars($row['message']); ?>
                         <?php if($row['status'] == 'unread'): ?>
                             <span style="display: inline-block; padding: 1px 10px; border-radius: 12px; font-size: 10px; background: #4299e1; color: white; margin-left: 8px;">NEW</span>
+                        <?php endif; ?>
+                        <?php if($link != '#'): ?>
+                            <span style="display: inline-block; padding: 1px 8px; border-radius: 12px; font-size: 9px; background: rgba(212, 175, 55, 0.2); color: #d4af37; margin-left: 8px;">Click to view</span>
                         <?php endif; ?>
                     </div>
                     <div style="font-size: 11px; color: rgba(255,255,255,0.4);">
@@ -71,9 +113,9 @@ include 'header.php';
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <?php if($row['status'] == 'unread'): ?>
-                        <a href="?read=<?php echo $row['id']; ?>" class="btn btn-sm" style="padding: 4px 12px; font-size: 11px; text-decoration: none;">Mark Read</a>
+                        <a href="?read=<?php echo $row['id']; ?>" class="btn btn-sm" style="padding: 4px 12px; font-size: 11px; text-decoration: none;" onclick="event.stopPropagation();">Mark Read</a>
                     <?php endif; ?>
-                    <a href="?delete=<?php echo $row['id']; ?>" class="btn btn-sm btn-danger" style="padding: 4px 12px; font-size: 11px; text-decoration: none; background: rgba(229,62,62,0.2); color: #fc8181; border: 1px solid rgba(229,62,62,0.2); border-radius: 20px;" onclick="return confirm('Delete this notification?')">Delete</a>
+                    <a href="?delete=<?php echo $row['id']; ?>" class="btn btn-sm btn-danger" style="padding: 4px 12px; font-size: 11px; text-decoration: none; background: rgba(229,62,62,0.2); color: #fc8181; border: 1px solid rgba(229,62,62,0.2); border-radius: 20px;" onclick="event.stopPropagation(); return confirm('Delete this notification?')">Delete</a>
                 </div>
             </div>
         <?php endwhile; ?>
