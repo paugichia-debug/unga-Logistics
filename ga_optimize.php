@@ -11,6 +11,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
 $message = '';
 $route_details = [];
 
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
 function calculateDistance($lat1, $lng1, $lat2, $lng2) {
     $R = 6371;
     $lat1 = deg2rad($lat1);
@@ -20,6 +24,18 @@ function calculateDistance($lat1, $lng1, $lat2, $lng2) {
     $a = sin($dlat/2) * sin($dlat/2) + cos($lat1) * cos($lat2) * sin($dlng/2) * sin($dlng/2);
     $c = 2 * atan2(sqrt($a), sqrt(1-$a));
     return round($R * $c, 1);
+}
+
+function calculateBearing($lat1, $lng1, $lat2, $lng2) {
+    $lat1 = deg2rad($lat1);
+    $lat2 = deg2rad($lat2);
+    $dLng = deg2rad($lng2 - $lng1);
+    
+    $y = sin($dLng) * cos($lat2);
+    $x = cos($lat1) * sin($lat2) - sin($lat1) * cos($lat2) * cos($dLng);
+    
+    $bearing = rad2deg(atan2($y, $x));
+    return ($bearing + 360) % 360;
 }
 
 function getBestVehicle($weight, $vehicles) {
@@ -33,6 +49,77 @@ function getBestVehicle($weight, $vehicles) {
     }
     return $best;
 }
+
+// ============================================
+// DIRECTION-BASED GROUPING (NEW)
+// ============================================
+
+function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
+    // Step 1: Calculate bearing and distance for each delivery
+    foreach ($deliveries as &$d) {
+        $d['bearing'] = calculateBearing($depotLat, $depotLng, $d['lat'], $d['lng']);
+        $d['distance'] = calculateDistance($depotLat, $depotLng, $d['lat'], $d['lng']);
+        $d['rounded_angle'] = round($d['bearing'] / $threshold) * $threshold;
+    }
+    
+    // Step 2: Initial grouping by rounded angle
+    $initialGroups = [];
+    foreach ($deliveries as $d) {
+        $key = $d['rounded_angle'];
+        if (!isset($initialGroups[$key])) {
+            $initialGroups[$key] = [];
+        }
+        $initialGroups[$key][] = $d;
+    }
+    
+    // Step 3: Merge adjacent groups if within threshold
+    $finalGroups = [];
+    $sortedAngles = array_keys($initialGroups);
+    sort($sortedAngles);
+    
+    foreach ($sortedAngles as $angle) {
+        $merged = false;
+        foreach ($finalGroups as &$group) {
+            $diff = abs($angle - $group['angle']);
+            // Handle wrap-around (0° and 360° are the same)
+            if ($diff > 180) {
+                $diff = 360 - $diff;
+            }
+            
+            if ($diff <= $threshold) {
+                $group['stops'] = array_merge($group['stops'], $initialGroups[$angle]);
+                // Recalculate average angle
+                $totalAngle = 0;
+                foreach ($group['stops'] as $s) {
+                    $totalAngle += $s['bearing'];
+                }
+                $group['angle'] = $totalAngle / count($group['stops']);
+                $merged = true;
+                break;
+            }
+        }
+        
+        if (!$merged) {
+            $finalGroups[] = [
+                'angle' => $angle,
+                'stops' => $initialGroups[$angle]
+            ];
+        }
+    }
+    
+    // Step 4: Sort stops in each group by distance (nearest first)
+    foreach ($finalGroups as &$group) {
+        usort($group['stops'], function($a, $b) {
+            return $a['distance'] - $b['distance'];
+        });
+    }
+    
+    return $finalGroups;
+}
+
+// ============================================
+// ASSIGN ROUTES
+// ============================================
 
 if (isset($_POST['assign_routes'])) {
     $assigned = 0;
@@ -50,7 +137,12 @@ if (isset($_POST['assign_routes'])) {
     $message = "✅ $assigned deliveries assigned successfully! Drivers notified.";
 }
 
+// ============================================
+// RUN GA OPTIMIZATION (UPDATED)
+// ============================================
+
 if (isset($_POST['run_ga'])) {
+    // Reset deliveries
     mysqli_query($conn, "UPDATE deliveries SET vehicle_id = NULL, driver_id = NULL, status = 'pending' WHERE delivery_date = CURDATE()");
     
     $deliveries = mysqli_query($conn, "SELECT d.*, c.name as customer_name, c.address, c.lat, c.lng 
@@ -71,21 +163,21 @@ if (isset($_POST['run_ga'])) {
         $vehicle_list[] = $row;
     }
     
-    // Debug
-    echo "Deliveries found: " . count($delivery_list) . "<br>";
-    echo "Vehicles found: " . count($vehicle_list) . "<br>";
-    
     if (count($delivery_list) > 0 && count($vehicle_list) > 0) {
+        $depot_lat = -1.3167;
+        $depot_lng = 36.8500;
+        
+        // ============================================
+        // NEW: Group by DIRECTION (not county)
+        // ============================================
+        $directionGroups = groupByDirection($delivery_list, $depot_lat, $depot_lng, 30);
+        
         $tempRoutes = [];
         
-        $groups = [];
-        foreach ($delivery_list as $d) {
-            preg_match('/\(([^)]+)\)/', $d['customer_name'], $matches);
-            $county = isset($matches[1]) ? $matches[1] : 'Other';
-            $groups[$county][] = $d;
-        }
-        
-        foreach ($groups as $county => $deliveriesInGroup) {
+        foreach ($directionGroups as $group) {
+            $deliveriesInGroup = $group['stops'];
+            
+            // Sort by weight (heavy first for packing efficiency)
             usort($deliveriesInGroup, function($a, $b) {
                 return $b['weight_tonnes'] <=> $a['weight_tonnes'];
             });
@@ -109,19 +201,24 @@ if (isset($_POST['run_ga'])) {
             }
         }
         
+        // ============================================
+        // Build final routes with vehicles
+        // ============================================
         $finalRoutes = [];
         foreach ($tempRoutes as $route) {
             $totalWeight = array_sum(array_column($route, 'weight_tonnes'));
             $best_vehicle = getBestVehicle($totalWeight, $vehicle_list);
             
             if ($best_vehicle !== null) {
+                // Assign deliveries to vehicle
                 foreach ($route as $delivery) {
                     $driver_id_sql = isset($best_vehicle['driver_id']) && $best_vehicle['driver_id'] > 0 ? $best_vehicle['driver_id'] : 'NULL';
                     mysqli_query($conn, "UPDATE deliveries SET vehicle_id = {$best_vehicle['id']}, driver_id = $driver_id_sql WHERE id = {$delivery['id']}");
                 }
                 
-                $depot_lat = -1.3167;
-                $depot_lng = 36.8500;
+                // ============================================
+                // NEW: Calculate distance WITHOUT return to depot
+                // ============================================
                 $totalDistance = 0;
                 $prevLat = $depot_lat;
                 $prevLng = $depot_lng;
@@ -131,15 +228,23 @@ if (isset($_POST['run_ga'])) {
                     $prevLat = $delivery['lat'];
                     $prevLng = $delivery['lng'];
                 }
-                $totalDistance += calculateDistance($prevLat, $prevLng, $depot_lat, $depot_lng);
+                // NO return to depot - outbound only!
                 
                 $fuel_cost = round($totalDistance * 50);
                 $route_cost = $best_vehicle['fixed_cost'] + $fuel_cost;
+                
+                // ============================================
+                // NEW: Build stop names in arrow format
+                // ============================================
+                $stopNames = array_column($route, 'customer_name');
+                $stopNamesArrow = implode(' → ', $stopNames);
                 
                 $finalRoutes[] = [
                     'vehicle' => $best_vehicle,
                     'driver_name' => $best_vehicle['driver_name'] ?? 'Unassigned',
                     'stops' => $route,
+                    'stop_names' => $stopNames,
+                    'stop_names_arrow' => $stopNamesArrow,
                     'total_distance' => round($totalDistance, 1),
                     'total_weight' => $totalWeight,
                     'fuel_cost' => $fuel_cost,
@@ -147,6 +252,7 @@ if (isset($_POST['run_ga'])) {
                     'num_stops' => count($route)
                 ];
                 
+                // Remove used vehicle
                 foreach ($vehicle_list as $idx => $v) {
                     if ($v['id'] == $best_vehicle['id']) {
                         unset($vehicle_list[$idx]);
@@ -205,7 +311,10 @@ $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries 
         .route-header h3{margin:0;font-size:16px}
         .route-header p{margin:5px 0 0;font-size:12px;opacity:0.9}
         .route-map{height:350px;width:100%}
-        .route-summary{background:#f8fafc;padding:10px 15px;display:flex;gap:15px;font-size:12px}
+        .route-summary{background:#f8fafc;padding:10px 15px;display:flex;gap:15px;font-size:12px;flex-wrap:wrap}
+        .route-stops-arrow{background:#f1f5f9;padding:10px 15px;font-size:13px;border-top:1px solid #e2e8f0;overflow-x:auto;white-space:nowrap}
+        .route-stops-arrow .marker{color:#e74c3c;font-weight:bold}
+        .route-stops-arrow .arrow{color:#3498db;margin:0 5px}
         .nav-buttons{text-align:center;margin:20px 0}
         .nav-btn{padding:10px 20px;margin:0 10px;cursor:pointer}
         .route-counter{margin:0 15px;font-weight:bold}
@@ -265,16 +374,16 @@ $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries 
                     <td><?php echo $row['id']; ?></td>
                     <td><?php echo $row['delivery_code']; ?></td>
                     <td style="word-break:break-word;"><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                    <td><?php echo $row['weight_tonnes']; ?> t</td
+                    <td><?php echo $row['weight_tonnes']; ?> t</td>
                 </tr>
                 <?php endwhile; else: ?>
-                <tr><td colspan="4" style="text-align:center;padding:40px;">No pending deliveries. Run GA to plan.</td
+                <tr><td colspan="4" style="text-align:center;padding:40px;">No pending deliveries. Run GA to plan.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
     
-    <!-- ROUTE MAPS - Always shows after GA, remains after Assign -->
+    <!-- ROUTE MAPS -->
     <?php if(!empty($route_details)): ?>
     <div class="section-title">🗺️ Route Maps</div>
     <?php $depot = ['lat' => -1.3167, 'lng' => 36.8500]; $total_routes = count($route_details); foreach($route_details as $index => $route): ?>
@@ -282,6 +391,12 @@ $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries 
         <div class="route-header">
             <h3>Route <?php echo $index+1; ?> of <?php echo $total_routes; ?> - <?php echo $route['vehicle']['plate_number']; ?> (<?php echo ucfirst($route['vehicle']['vehicle_type']); ?>)</h3>
             <p>Driver: <?php echo $route['driver_name']; ?> | Weight: <?php echo $route['total_weight']; ?> t | Stops: <?php echo $route['num_stops']; ?> | Distance: <?php echo $route['total_distance']; ?> km</p>
+        </div>
+        <!-- ============================================ -->
+        <!-- NEW: Arrow format stops display -->
+        <!-- ============================================ -->
+        <div class="route-stops-arrow">
+            <span class="marker">📍</span> <?php echo $route['stop_names_arrow']; ?>
         </div>
         <div id="map<?php echo $index; ?>" class="route-map"></div>
         <div class="route-summary">
@@ -292,12 +407,13 @@ $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries 
     </div>
     <?php endforeach; ?>
     <div class="nav-buttons">
-        <button id="prevBtn" class="btn" style="background:#64748b;color:#fff;margin:0 10px;">← Previous</button>
+        <button id="prevBtn" class="btn nav-btn" style="background:#64748b;color:#fff;">← Previous</button>
         <span id="routeCounter" class="route-counter">Route 1 of <?php echo $total_routes; ?></span>
-        <button id="nextBtn" class="btn" style="background:#10b981;color:#fff;margin:0 10px;">Next →</button>
+        <button id="nextBtn" class="btn nav-btn" style="background:#10b981;color:#fff;">Next →</button>
     </div>
     <script>
-    var totalRoutes = <?php echo $total_routes; ?>, currentIndex = 0, maps = {}, routeControls = {}, depot = <?php echo json_encode($depot); ?>, routeDetails = <?php echo json_encode($route_details); ?>;
+    var totalRoutes = <?php echo $total_routes; ?>, currentIndex = 0, maps = {}, depot = <?php echo json_encode($depot); ?>, routeDetails = <?php echo json_encode($route_details); ?>;
+    
     function loadMap(index){
         var route = routeDetails[index], mapId = 'map'+index;
         for(var i=0;i<totalRoutes;i++){var card=document.getElementById('card'+i);if(card)card.style.display='none';}
@@ -308,13 +424,27 @@ $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries 
         if(maps[mapId]){maps[mapId].invalidateSize();return;}
         var map = L.map(mapId).setView([depot.lat, depot.lng], 8);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        // ============================================
+        // FIXED: No return to depot!
+        // Only outbound route: Depot → Stop1 → Stop2 → Stop3
+        // ============================================
         var waypoints = [L.latLng(depot.lat, depot.lng)];
         for(var i = 0; i < route.stops.length; i++) {
             waypoints.push(L.latLng(route.stops[i].lat, route.stops[i].lng));
-            L.marker([route.stops[i].lat, route.stops[i].lng]).bindPopup('<b>📦 ' + (i+1) + '. ' + route.stops[i].customer_name + '</b><br>Weight: ' + route.stops[i].weight_tonnes + ' t').addTo(map);
+            // ============================================
+            // NEW: ALL markers shown with stop number
+            // ============================================
+            L.marker([route.stops[i].lat, route.stops[i].lng])
+                .bindPopup('<b>📍 Stop ' + (i+1) + ': ' + route.stops[i].customer_name + '</b><br>Weight: ' + route.stops[i].weight_tonnes + ' t')
+                .addTo(map);
         }
-        waypoints.push(L.latLng(depot.lat, depot.lng));
-        L.marker([depot.lat, depot.lng]).bindPopup('<b>🏭 Depot (Start/End)</b>').addTo(map);
+        // NO return to depot - removed!
+        
+        L.marker([depot.lat, depot.lng])
+            .bindPopup('<b>🏭 Depot (Start)</b>')
+            .addTo(map);
+            
         L.Routing.control({
             waypoints: waypoints,
             router: L.Routing.osrmv1({serviceUrl: 'https://router.project-osrm.org/route/v1'}),
