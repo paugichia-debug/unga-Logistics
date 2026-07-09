@@ -251,7 +251,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <span>Unga Holdings Limited</span> | Since 1908
             </div>
             <div class="truck-brand">
-                🚛 Powered by <span>Volvo Trucks</span> | Fleet of 16 Vehicles
             </div>
         </div>
     </div>
