@@ -33,7 +33,21 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
-            background: #f5f7fa;
+            background: linear-gradient(160deg, #f5f7fa 0%, #e8e4d8 50%, #f5f7fa 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+        /* Subtle pattern overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4af37' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
         }
         .sidebar {
             background: #1a202c;
@@ -41,8 +55,12 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             position: fixed;
             height: 100%;
             padding: 2rem 1rem;
+            z-index: 10;
         }
-        .sidebar h2 { color: #d4af37; margin-bottom: 2rem; }
+        .sidebar h2 { 
+            color: #d4af37; 
+            margin-bottom: 2rem; 
+        }
         .sidebar a {
             color: white;
             text-decoration: none;
@@ -52,7 +70,12 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             border-radius: 6px;
         }
         .sidebar a:hover, .sidebar a.active { background: #4a5568; }
-        .content { margin-left: 250px; padding: 2rem; }
+        .content { 
+            margin-left: 250px; 
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
         .header {
             background: white;
             padding: 1rem 2rem;
@@ -60,9 +83,11 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
             flex-wrap: wrap;
             gap: 10px;
+            border-radius: 12px;
+            border-left: 5px solid #d4af37;
         }
         .header-left h2 {
             color: #2d3748;
@@ -78,7 +103,7 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
         .header-right .clock {
             font-size: 22px;
             font-weight: bold;
-            color: #2d3748;
+            color: #d4af37;
             font-variant-numeric: tabular-nums;
         }
         .header-right .admin-info {
@@ -87,7 +112,7 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             margin-top: 2px;
         }
         .logout-btn {
-            background: #e53e3e;
+            background: #c0392b;
             color: white;
             padding: 6px 14px;
             text-decoration: none;
@@ -96,7 +121,7 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             margin-left: 8px;
         }
         .logout-btn:hover {
-            background: #c53030;
+            background: #a93226;
         }
         .stats {
             display: flex;
@@ -109,11 +134,17 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             border-radius: 12px;
             text-align: center;
             flex: 1;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-bottom: 3px solid #d4af37;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
         }
         .stat-card h3 {
             font-size: 28px;
-            color: #48bb78;
+            color: #d4af37;
             margin-bottom: 5px;
         }
         .stat-card p {
@@ -125,13 +156,14 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 2rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 4px solid #d4af37;
         }
         .section h3 {
             color: #2d3748;
             margin-bottom: 1rem;
             padding-bottom: 10px;
-            border-bottom: 2px solid #e2e8f0;
+            border-bottom: 2px solid #e8e4d8;
         }
         .table-container {
             overflow-x: auto;
@@ -147,13 +179,13 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             font-size: 13px;
         }
         th {
-            background: #f7fafc;
+            background: #f8f6f2;
             font-weight: 600;
             color: #2d3748;
         }
         .btn {
             padding: 6px 12px;
-            background: #4299e1;
+            background: #d4af37;
             color: white;
             text-decoration: none;
             border-radius: 4px;
@@ -161,7 +193,7 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             display: inline-block;
         }
         .btn:hover {
-            background: #3182ce;
+            background: #c49a2a;
         }
         .badge {
             background: #e53e3e;
@@ -179,7 +211,7 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             border-radius: 20px;
             font-size: 12px;
         }
-        .driver-item.active { background: #48bb78; color: white; }
+        .driver-item.active { background: #d4af37; color: white; }
         .info-text { font-size: 12px; color: #718096; margin-top: 10px; }
         
         .footer {
@@ -255,7 +287,7 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
     </div>
     
     <div class="content">
-        <!-- UPDATED HEADER WITH 24-HOUR CLOCK -->
+        <!-- HEADER WITH 24-HOUR CLOCK -->
         <div class="header">
             <div class="header-left">
                 <h2>Welcome, <?php echo $_SESSION['username']; ?></h2>
