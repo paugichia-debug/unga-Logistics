@@ -165,6 +165,11 @@ if (isset($_POST['run_ga'])) {
 $pending_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries WHERE delivery_date = CURDATE() AND status = 'pending'"));
 $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries WHERE delivery_date = CURDATE() AND status = 'assigned'"));
 
+// Load route details from session if exists
+if (empty($route_details) && isset($_SESSION['ga_routes'])) {
+    $route_details = unserialize($_SESSION['ga_routes']);
+}
+
 include 'header.php';
 ?>
 
@@ -181,10 +186,10 @@ include 'header.php';
         <table>
             <thead>
                 <tr>
-                    <th style="width:80px;">ID</th>
-                    <th style="width:120px;">Delivery Code</th>
+                    <th>ID</th>
+                    <th>Delivery Code</th>
                     <th>Customer</th>
-                    <th style="width:100px;">Weight (t)</th>
+                    <th>Weight (t)</th>
                 </tr>
             </thead>
             <tbody>
@@ -196,7 +201,7 @@ include 'header.php';
                 <tr>
                     <td><?php echo $row['id']; ?></td>
                     <td><?php echo $row['delivery_code']; ?></td>
-                    <td style="word-break:break-word;"><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                    <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
                     <td><?php echo $row['weight_tonnes']; ?> t</td>
                 </tr>
                 <?php endwhile; else: ?>
@@ -225,7 +230,11 @@ include 'header.php';
 <?php if(!empty($route_details)): ?>
 <div class="glass-card">
     <h3>🗺️ Route Maps</h3>
-    <?php $depot = ['lat' => -1.3167, 'lng' => 36.8500]; $total_routes = count($route_details); foreach($route_details as $index => $route): ?>
+    <?php 
+    $depot = ['lat' => -1.3167, 'lng' => 36.8500]; 
+    $total_routes = count($route_details); 
+    foreach($route_details as $index => $route): 
+    ?>
     <div class="route-card" id="card<?php echo $index; ?>" style="display:<?php echo $index==0?'block':'none';?>; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
         <div style="color: #ffffff; margin-bottom: 10px;">
             <h3 style="margin:0; font-size:16px;">Route <?php echo $index+1; ?> of <?php echo $total_routes; ?> - <?php echo $route['vehicle']['plate_number']; ?> (<?php echo ucfirst($route['vehicle']['vehicle_type']); ?>)</h3>
@@ -245,34 +254,52 @@ include 'header.php';
         <button id="nextBtn" class="btn" style="background: #d4af37; color: #1a202c; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin:0 10px;">Next →</button>
     </div>
 </div>
-<?php endif; ?>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script>
-<?php if(!empty($route_details)): ?>
-var totalRoutes = <?php echo $total_routes; ?>, currentIndex = 0, maps = {}, depot = <?php echo json_encode($depot); ?>, routeDetails = <?php echo json_encode($route_details); ?>;
+var totalRoutes = <?php echo $total_routes; ?>;
+var currentIndex = 0;
+var maps = {};
+var depot = <?php echo json_encode($depot); ?>;
+var routeDetails = <?php echo json_encode($route_details); ?>;
 
 function loadMap(index){
-    var route = routeDetails[index], mapId = 'map'+index;
-    for(var i=0;i<totalRoutes;i++){var card=document.getElementById('card'+i);if(card)card.style.display='none';}
-    document.getElementById('card'+index).style.display='block';
-    document.getElementById('routeCounter').innerHTML='Route '+(index+1)+' of '+totalRoutes;
-    document.getElementById('prevBtn').disabled=(index===0);
-    document.getElementById('nextBtn').disabled=(index===totalRoutes-1);
-    if(maps[mapId]){maps[mapId].invalidateSize();return;}
+    var route = routeDetails[index];
+    var mapId = 'map'+index;
+    
+    // Hide all cards
+    for(var i=0; i<totalRoutes; i++){
+        var card = document.getElementById('card'+i);
+        if(card) card.style.display = 'none';
+    }
+    document.getElementById('card'+index).style.display = 'block';
+    document.getElementById('routeCounter').innerHTML = 'Route '+(index+1)+' of '+totalRoutes;
+    document.getElementById('prevBtn').disabled = (index === 0);
+    document.getElementById('nextBtn').disabled = (index === totalRoutes-1);
+    
+    if(maps[mapId]){
+        maps[mapId].invalidateSize();
+        return;
+    }
+    
     var map = L.map(mapId).setView([depot.lat, depot.lng], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
     var waypoints = [L.latLng(depot.lat, depot.lng)];
-    for(var i = 0; i < route.stops.length; i++) {
+    
+    for(var i = 0; i < route.stops.length; i++){
         waypoints.push(L.latLng(route.stops[i].lat, route.stops[i].lng));
         L.marker([route.stops[i].lat, route.stops[i].lng])
             .bindPopup('<b>📦 ' + (i+1) + '. ' + route.stops[i].customer_name + '</b><br>Weight: ' + route.stops[i].weight_tonnes + ' t')
             .addTo(map);
     }
+    
     waypoints.push(L.latLng(depot.lat, depot.lng));
-    L.marker([depot.lat, depot.lng]).bindPopup('<b>🏭 Depot (Start/End)</b>').addTo(map);
+    L.marker([depot.lat, depot.lng])
+        .bindPopup('<b>🏭 Depot (Start/End)</b>')
+        .addTo(map);
+    
     L.Routing.control({
         waypoints: waypoints,
         router: L.Routing.osrmv1({serviceUrl: 'https://router.project-osrm.org/route/v1'}),
@@ -281,12 +308,26 @@ function loadMap(index){
         show: false,
         lineOptions: {styles: [{color: '#d4af37', weight: 5}]}
     }).addTo(map);
-    maps[mapId]=map;
+    
+    maps[mapId] = map;
 }
+
 loadMap(0);
-document.getElementById('prevBtn').onclick=function(){if(currentIndex>0){currentIndex--;loadMap(currentIndex);}};
-document.getElementById('nextBtn').onclick=function(){if(currentIndex<totalRoutes-1){currentIndex++;loadMap(currentIndex);}};
-<?php endif; ?>
+
+document.getElementById('prevBtn').onclick = function(){
+    if(currentIndex > 0){
+        currentIndex--;
+        loadMap(currentIndex);
+    }
+};
+
+document.getElementById('nextBtn').onclick = function(){
+    if(currentIndex < totalRoutes-1){
+        currentIndex++;
+        loadMap(currentIndex);
+    }
+};
 </script>
+<?php endif; ?>
 
 <?php include 'footer.php'; ?>
