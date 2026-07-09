@@ -80,7 +80,7 @@ if (!$delivery) {
             <h3>👤 Customer Details</h3>
             <div class="row"><div class="label">Name:</div><div><?php echo htmlspecialchars($delivery['customer_name']); ?></div></div>
             <div class="row"><div class="label">Address:</div><div><?php echo htmlspecialchars($delivery['address']); ?></div></div>
-            <div class="row"><div class="label">Phone:</div><div><?php echo $delivery['phone'] ?: 'N/A'; ?></div></div>
+            <div class="row"><div class="label">:</div><div><?php echo $delivery?: 'N/A'; ?></div></div>
         </div>
         
         <?php if($delivery['driver_name'] || $delivery['plate_number']): ?>
