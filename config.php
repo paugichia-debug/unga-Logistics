@@ -1,4 +1,9 @@
 <?php
+// ============================================
+// FORCE KENYA TIMEZONE
+// ============================================
+date_default_timezone_set('Africa/Nairobi');
+
 $host = getenv('DB_HOST') ?: 'mysql';
 $user = getenv('DB_USER') ?: 'root';
 $password = getenv('DB_PASSWORD') ?: '';
@@ -11,6 +16,8 @@ if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
 }
 
-// Remove this line - it causes the header error!
-// echo "Connected successfully!";
+// ============================================
+// FORCE MYSQL TO USE KENYA TIME
+// ============================================
+mysqli_query($conn, "SET time_zone = '+03:00'");
 ?>
