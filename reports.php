@@ -23,10 +23,18 @@ $stats_query = "SELECT
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
 
-$penalty_query = mysqli_query($conn, "SELECT d.*, c.name as customer_name, u.username as driver_name 
+// FIXED: Added vehicle details (plate_number, vehicle_type)
+$penalty_query = mysqli_query($conn, "SELECT 
+    d.*, 
+    c.name as customer_name, 
+    u.username as driver_name,
+    v.plate_number,
+    v.vehicle_type,
+    v.capacity_tonnes
     FROM deliveries d 
     LEFT JOIN customers c ON d.customer_id = c.id 
     LEFT JOIN users u ON d.driver_id = u.id 
+    LEFT JOIN vehicles v ON d.vehicle_id = v.id 
     WHERE d.penalty_amount > 0 
     AND d.delivered_at BETWEEN '$start_date 00:00:00' AND '$end_date 23:59:59'
     ORDER BY d.penalty_amount DESC");
@@ -164,6 +172,7 @@ $summary_query = mysqli_query($conn, "SELECT
         }
         .badge-late { background: #e53e3e; color: white; }
         .badge-ontime { background: #48bb78; color: white; }
+        .vehicle-cell { font-size: 12px; color: #4a5568; }
     </style>
 </head>
 <body>
@@ -251,7 +260,7 @@ $summary_query = mysqli_query($conn, "SELECT
                         </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr><td colspan="4" style="text-align: center;">No data for selected period</td
+                        <tr><td colspan="4" style="text-align: center;">No data for selected period</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -265,6 +274,7 @@ $summary_query = mysqli_query($conn, "SELECT
                         <th>Delivery Code</th>
                         <th>Customer</th>
                         <th>Driver</th>
+                        <th>Vehicle</th>
                         <th>Delivered At</th>
                         <th>Deadline</th>
                         <th>Penalty (KES)</th>
@@ -275,15 +285,23 @@ $summary_query = mysqli_query($conn, "SELECT
                         <?php while($row = mysqli_fetch_assoc($penalty_query)): ?>
                         <tr>
                             <td><?php echo $row['delivery_code']; ?></td>
-                            <td><?php echo $row['customer_name']; ?></td>
-                            <td><?php echo $row['driver_name']; ?></td>
+                            <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                            <td><?php echo $row['driver_name'] ?? 'Unassigned'; ?></td>
+                            <td class="vehicle-cell">
+                                <?php if($row['plate_number']): ?>
+                                    <strong><?php echo $row['plate_number']; ?></strong>
+                                    <br><small><?php echo ucfirst($row['vehicle_type'] ?? ''); ?> (<?php echo $row['capacity_tonnes'] ?? '?'; ?>t)</small>
+                                <?php else: ?>
+                                    <span style="color:#a0aec0;">N/A</span>
+                                <?php endif; ?>
+                            </td>
                             <td><?php echo date('d/m/Y H:i', strtotime($row['delivered_at'])); ?></td>
                             <td><?php echo $row['time_window_end'] ? date('H:i', strtotime($row['time_window_end'])) : 'N/A'; ?></td>
                             <td class="penalty-number">KES <?php echo number_format($row['penalty_amount']); ?></td>
                         </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr><td colspan="6" style="text-align: center;">No penalties recorded in this period</td
+                        <tr><td colspan="7" style="text-align: center;">No penalties recorded in this period</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
