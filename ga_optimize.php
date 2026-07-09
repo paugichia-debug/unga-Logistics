@@ -47,9 +47,6 @@ function getBestVehicle($weight, $vehicles) {
     return $best;
 }
 
-// ============================================
-// DIRECTION-BASED GROUPING (NEW)
-// ============================================
 function groupByDirection($deliveries, $depotLat, $depotLng, $threshold = 30) {
     foreach ($deliveries as &$d) {
         $d['bearing'] = calculateBearing($depotLat, $depotLng, $d['lat'], $d['lng']);
@@ -152,9 +149,6 @@ if (isset($_POST['run_ga'])) {
         $depot_lat = -1.3167;
         $depot_lng = 36.8500;
         
-        // ============================================
-        // NEW: Group by DIRECTION (not county)
-        // ============================================
         $directionGroups = groupByDirection($delivery_list, $depot_lat, $depot_lng, 30);
         
         $tempRoutes = [];
@@ -196,9 +190,6 @@ if (isset($_POST['run_ga'])) {
                     mysqli_query($conn, "UPDATE deliveries SET vehicle_id = {$best_vehicle['id']}, driver_id = $driver_id_sql WHERE id = {$delivery['id']}");
                 }
                 
-                // ============================================
-                // NEW: Calculate distance WITHOUT return to depot
-                // ============================================
                 $totalDistance = 0;
                 $prevLat = $depot_lat;
                 $prevLng = $depot_lng;
@@ -208,12 +199,10 @@ if (isset($_POST['run_ga'])) {
                     $prevLat = $delivery['lat'];
                     $prevLng = $delivery['lng'];
                 }
-                // NO return to depot - outbound only!
                 
                 $fuel_cost = round($totalDistance * 50);
                 $route_cost = $best_vehicle['fixed_cost'] + $fuel_cost;
                 
-                // Build stop names with weights in arrow format
                 $stopDetails = [];
                 foreach ($route as $index => $stop) {
                     $stopDetails[] = ($index + 1) . '. ' . $stop['customer_name'] . ' (' . $stop['weight_tonnes'] . 't)';
@@ -254,7 +243,6 @@ if (isset($_POST['run_ga'])) {
 $pending_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries WHERE delivery_date = CURDATE() AND status = 'pending'"));
 $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries WHERE delivery_date = CURDATE() AND status = 'assigned'"));
 
-// Load route details from session if exists
 if (empty($route_details) && isset($_SESSION['ga_routes'])) {
     $route_details = unserialize($_SESSION['ga_routes']);
 }
@@ -377,7 +365,6 @@ function loadMap(index){
     var map = L.map(mapId).setView([depot.lat, depot.lng], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    // Outbound only: Depot → Stop1 → Stop2 → Stop3 (NO return to depot)
     var waypoints = [L.latLng(depot.lat, depot.lng)];
     
     for(var i = 0; i < route.stops.length; i++){
@@ -397,8 +384,16 @@ function loadMap(index){
         showAlternatives: false,
         fitSelectedRoutes: true,
         show: false,
+        routeWhileDragging: false,
         lineOptions: {styles: [{color: '#d4af37', weight: 5}]}
     }).addTo(map);
+    
+    // Hide routing instructions panel
+    setTimeout(function() {
+        document.querySelectorAll('.leaflet-routing-container').forEach(function(el) {
+            el.style.display = 'none';
+        });
+    }, 500);
     
     maps[mapId] = map;
 }
