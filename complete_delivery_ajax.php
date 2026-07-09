@@ -1,6 +1,12 @@
 <?php
 session_name('DRIVER_SESSION');
 session_start();
+
+// ============================================
+// FIX 1: FORCE KENYA TIMEZONE AT THE VERY TOP
+// ============================================
+date_default_timezone_set('Africa/Nairobi');
+
 include 'config.php';
 
 // Enable error reporting for debugging
@@ -48,6 +54,13 @@ if (empty($driver_signature) || strlen($driver_signature) < 100) {
     exit();
 }
 
+// ============================================
+// FIX 2: Use PHP time (Kenya time) for signatures
+// ============================================
+$timestamp = time();
+$delivery_time = date('Y-m-d H:i:s');  // Kenya time
+$current_time = date('H:i:s');         // Kenya time
+
 // Create signatures directory
 $signature_dir = __DIR__ . '/signatures/';
 if (!file_exists($signature_dir)) {
@@ -55,7 +68,7 @@ if (!file_exists($signature_dir)) {
 }
 
 // Save customer signature
-$customer_sig_file = 'signatures/customer_sig_' . $delivery_id . '_' . time() . '.png';
+$customer_sig_file = 'signatures/customer_sig_' . $delivery_id . '_' . $timestamp . '.png';
 $customer_full_path = __DIR__ . '/' . $customer_sig_file;
 $customer_sig_data = str_replace('data:image/png;base64,', '', $customer_signature);
 $customer_sig_data = str_replace(' ', '+', $customer_sig_data);
@@ -67,7 +80,7 @@ if ($customer_decoded === false) {
 file_put_contents($customer_full_path, $customer_decoded);
 
 // Save driver signature
-$driver_sig_file = 'signatures/driver_sig_' . $delivery_id . '_' . time() . '.png';
+$driver_sig_file = 'signatures/driver_sig_' . $delivery_id . '_' . $timestamp . '.png';
 $driver_full_path = __DIR__ . '/' . $driver_sig_file;
 $driver_sig_data = str_replace('data:image/png;base64,', '', $driver_signature);
 $driver_sig_data = str_replace(' ', '+', $driver_sig_data);
@@ -90,10 +103,11 @@ if (!$delivery_info) {
     exit();
 }
 
-// Calculate penalty
+// ============================================
+// FIX 3: Calculate penalty using Kenya time
+// ============================================
 $penalty = 0;
 $time_window_end = $delivery_info['time_window_end'];
-$current_time = date('H:i:s');
 
 if ($time_window_end && $current_time > $time_window_end) {
     $deadline_h = (int)substr($time_window_end, 0, 2);
@@ -112,10 +126,12 @@ if ($time_window_end && $current_time > $time_window_end) {
     }
 }
 
-// Update delivery
+// ============================================
+// FIX 4: Use $delivery_time (Kenya time) instead of NOW()
+// ============================================
 $update = "UPDATE deliveries SET 
     status = 'delivered', 
-    delivered_at = NOW(), 
+    delivered_at = '$delivery_time',
     signature_path = '$customer_sig_file',
     driver_signature_path = '$driver_sig_file',
     penalty_amount = $penalty
@@ -130,5 +146,11 @@ if (!mysqli_query($conn, $update)) {
 $message_text = "✅ Delivery {$delivery_info['delivery_code']} completed by $username for {$delivery_info['customer_name']}" . ($penalty > 0 ? " (Late: KES $penalty)" : "");
 mysqli_query($conn, "INSERT INTO notifications (delivery_id, message, status) VALUES ($delivery_id, '$message_text', 'unread')");
 
-echo json_encode(['success' => true, 'penalty' => $penalty, 'delivery_code' => $delivery_info['delivery_code']]);
+echo json_encode([
+    'success' => true, 
+    'penalty' => $penalty, 
+    'delivery_code' => $delivery_info['delivery_code'],
+    'delivered_at' => $delivery_time,
+    'timezone' => date('T')
+]);
 ?>
