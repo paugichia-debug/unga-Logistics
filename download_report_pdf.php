@@ -38,11 +38,20 @@ $summary_query = mysqli_query($conn, "SELECT
     GROUP BY DATE(delivered_at)
     ORDER BY period DESC");
 
-// Penalty details
-$penalty_query = mysqli_query($conn, "SELECT d.delivery_code, c.name as customer_name, u.username as driver_name, d.delivered_at, d.time_window_end, d.penalty_amount 
+// FIXED: Added vehicle details
+$penalty_query = mysqli_query($conn, "SELECT 
+    d.delivery_code, 
+    c.name as customer_name, 
+    u.username as driver_name,
+    v.plate_number,
+    v.vehicle_type,
+    d.delivered_at, 
+    d.time_window_end, 
+    d.penalty_amount 
     FROM deliveries d 
     LEFT JOIN customers c ON d.customer_id = c.id 
     LEFT JOIN users u ON d.driver_id = u.id 
+    LEFT JOIN vehicles v ON d.vehicle_id = v.id 
     WHERE d.penalty_amount > 0 
     AND d.delivered_at BETWEEN '$start_date 00:00:00' AND '$end_date 23:59:59'
     ORDER BY d.penalty_amount DESC");
@@ -160,28 +169,37 @@ if (mysqli_num_rows($penalty_query) > 0) {
     $pdf->Cell(0, 8, 'LATE DELIVERY PENALTIES', 0, 1, 'L', true);
     $pdf->Ln(3);
     
-    $pdf->SetFont('Arial', 'B', 8);
+    $pdf->SetFont('Arial', 'B', 7);
     $pdf->SetFillColor(45, 55, 72);
     $pdf->SetTextColor(255, 255, 255);
-    $pdf->Cell(35, 7, 'Delivery Code', 1, 0, 'C', true);
-    $pdf->Cell(50, 7, 'Customer', 1, 0, 'C', true);
-    $pdf->Cell(35, 7, 'Driver', 1, 0, 'C', true);
-    $pdf->Cell(35, 7, 'Delivered At', 1, 0, 'C', true);
-    $pdf->Cell(20, 7, 'Deadline', 1, 0, 'C', true);
-    $pdf->Cell(20, 7, 'Penalty', 1, 1, 'C', true);
+    $pdf->Cell(30, 7, 'Delivery Code', 1, 0, 'C', true);
+    $pdf->Cell(40, 7, 'Customer', 1, 0, 'C', true);
+    $pdf->Cell(25, 7, 'Driver', 1, 0, 'C', true);
+    $pdf->Cell(30, 7, 'Vehicle', 1, 0, 'C', true);
+    $pdf->Cell(30, 7, 'Delivered At', 1, 0, 'C', true);
+    $pdf->Cell(17, 7, 'Deadline', 1, 0, 'C', true);
+    $pdf->Cell(18, 7, 'Penalty', 1, 1, 'C', true);
     
-    $pdf->SetFont('Arial', '', 7);
+    $pdf->SetFont('Arial', '', 6);
     $pdf->SetTextColor(0, 0, 0);
     
     while ($row = mysqli_fetch_assoc($penalty_query)) {
-        $pdf->Cell(35, 6, $row['delivery_code'], 1, 0, 'L');
-        $customer_name = strlen($row['customer_name']) > 20 ? substr($row['customer_name'], 0, 17) . '...' : $row['customer_name'];
-        $pdf->Cell(50, 6, $customer_name, 1, 0, 'L');
-        $pdf->Cell(35, 6, $row['driver_name'], 1, 0, 'L');
-        $pdf->Cell(35, 6, date('d/m/Y H:i', strtotime($row['delivered_at'])), 1, 0, 'L');
-        $pdf->Cell(20, 6, date('H:i', strtotime($row['time_window_end'])), 1, 0, 'C');
+        $pdf->Cell(30, 6, $row['delivery_code'], 1, 0, 'L');
+        $customer_name = strlen($row['customer_name']) > 18 ? substr($row['customer_name'], 0, 15) . '...' : $row['customer_name'];
+        $pdf->Cell(40, 6, $customer_name, 1, 0, 'L');
+        $pdf->Cell(25, 6, $row['driver_name'] ?? 'Unassigned', 1, 0, 'L');
+        
+        // Vehicle column
+        $vehicle_text = $row['plate_number'] ? $row['plate_number'] : 'N/A';
+        if ($row['vehicle_type']) {
+            $vehicle_text .= ' (' . $row['vehicle_type'] . ')';
+        }
+        $pdf->Cell(30, 6, $vehicle_text, 1, 0, 'L');
+        
+        $pdf->Cell(30, 6, date('d/m/Y H:i', strtotime($row['delivered_at'])), 1, 0, 'L');
+        $pdf->Cell(17, 6, date('H:i', strtotime($row['time_window_end'])), 1, 0, 'C');
         $pdf->SetTextColor(229, 62, 62);
-        $pdf->Cell(20, 6, 'KES ' . number_format($row['penalty_amount']), 1, 1, 'R');
+        $pdf->Cell(18, 6, 'KES ' . number_format($row['penalty_amount']), 1, 1, 'R');
         $pdf->SetTextColor(0, 0, 0);
     }
 }
