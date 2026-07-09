@@ -61,6 +61,42 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header-left h2 {
+            color: #2d3748;
+            font-size: 20px;
+        }
+        .header-left .date {
+            font-size: 13px;
+            color: #718096;
+        }
+        .header-right {
+            text-align: right;
+        }
+        .header-right .clock {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2d3748;
+            font-variant-numeric: tabular-nums;
+        }
+        .header-right .admin-info {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 2px;
+        }
+        .logout-btn {
+            background: #e53e3e;
+            color: white;
+            padding: 6px 14px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+        .logout-btn:hover {
+            background: #c53030;
         }
         .stats {
             display: flex;
@@ -124,6 +160,9 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             font-size: 12px;
             display: inline-block;
         }
+        .btn:hover {
+            background: #3182ce;
+        }
         .badge {
             background: #e53e3e;
             color: white;
@@ -131,14 +170,6 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             padding: 2px 6px;
             font-size: 10px;
             margin-left: 5px;
-        }
-        .logout-btn {
-            background: #e53e3e;
-            color: white;
-            padding: 8px 16px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-left: 15px;
         }
         #map { height: 400px; width: 100%; border-radius: 12px; margin-bottom: 15px; }
         .driver-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
@@ -151,7 +182,6 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
         .driver-item.active { background: #48bb78; color: white; }
         .info-text { font-size: 12px; color: #718096; margin-top: 10px; }
         
-        /* Footer Styles */
         .footer {
             background: #1a202c;
             color: #a0aec0;
@@ -201,6 +231,8 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             .sidebar { display: none; }
             .stats { flex-direction: column; }
             .footer-content { flex-direction: column; text-align: center; }
+            .header { flex-direction: column; text-align: center; }
+            .header-right { text-align: center; }
         }
     </style>
 </head>
@@ -223,11 +255,18 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
     </div>
     
     <div class="content">
+        <!-- UPDATED HEADER WITH 24-HOUR CLOCK -->
         <div class="header">
-            <h2>Welcome, <?php echo $_SESSION['username']; ?></h2>
-            <div>
-                <span>Admin Panel</span>
-                <a href="logout.php" class="logout-btn">Logout</a>
+            <div class="header-left">
+                <h2>Welcome, <?php echo $_SESSION['username']; ?></h2>
+                <div class="date"><?php echo date('l, d/m/Y'); ?></div>
+            </div>
+            <div class="header-right">
+                <div class="clock" id="clockDisplay"><?php echo date('H:i:s'); ?></div>
+                <div class="admin-info">
+                    Admin Panel
+                    <a href="logout.php" class="logout-btn">Logout</a>
+                </div>
             </div>
         </div>
         
@@ -270,7 +309,6 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
             </div>
         </div>
         
-        <!-- COMPANY INFORMATION FOOTER -->
         <div class="footer">
             <div class="footer-content">
                 <div class="footer-section">
@@ -307,6 +345,16 @@ $recent = mysqli_query($conn, "SELECT id, delivery_code, status FROM deliveries 
     </div>
     
     <script>
+        // LIVE CLOCK UPDATES
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clockDisplay').textContent = hours + ':' + minutes + ':' + seconds;
+        }
+        setInterval(updateClock, 1000);
+        
         let map;
         let markers = [];
         
