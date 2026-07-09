@@ -1,5 +1,4 @@
 <?php
-error_reporting(E_ALL & ~E_DEPRECATED);
 session_name('ADMIN_SESSION');
 session_start();
 include 'config.php';
@@ -203,11 +202,9 @@ if (isset($_POST['run_ga'])) {
                 $fuel_cost = round($totalDistance * 50);
                 $route_cost = $best_vehicle['fixed_cost'] + $fuel_cost;
                 
-                // Build stop list with weights
                 $stopNames = array_column($route, 'customer_name');
                 $stopNamesArrow = implode(' → ', $stopNames);
                 
-                // Build detailed stops with weight for display
                 $stopDetails = [];
                 foreach ($route as $index => $stop) {
                     $stopDetails[] = ($index + 1) . '. ' . $stop['customer_name'] . ' (' . $stop['weight_tonnes'] . 't)';
@@ -249,86 +246,19 @@ if (isset($_POST['run_ga'])) {
 
 $pending_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries WHERE delivery_date = CURDATE() AND status = 'pending'"));
 $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries WHERE delivery_date = CURDATE() AND status = 'assigned'"));
+
+include 'header.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>GA Optimization - Unga Logistics</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:Arial;background:#f0f2f5}
-        .sidebar{background:#1e293b;width:260px;position:fixed;height:100%;padding:20px}
-        .sidebar h2{color:#fbbf24;margin-bottom:20px}
-        .sidebar a{color:#fff;display:block;padding:10px;margin:5px 0;text-decoration:none;border-radius:8px}
-        .sidebar a:hover,.sidebar a.active{background:#334155}
-        .content{margin-left:260px;padding:20px}
-        .header{background:#fff;padding:15px 20px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-        .btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:14px;color:#fff}
-        .btn-ga{background:#10b981}
-        .btn-assign{background:#f59e0b}
-        .message{background:#d1fae5;color:#065f46;padding:12px;border-radius:8px;margin-bottom:20px}
-        .stats{display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap}
-        .stat-box{background:#fff;padding:15px 25px;border-radius:12px;text-align:center;min-width:100px}
-        .stat-number{font-size:28px;font-weight:bold;color:#10b981}
-        .section-title{background:#e2e8f0;padding:10px 15px;border-radius:8px;margin:20px 0 15px;font-weight:bold}
-        .table-container{background:#fff;border-radius:12px;overflow-x:auto;margin-bottom:20px}
-        table{width:100%;border-collapse:collapse}
-        th,td{padding:12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:13px}
-        th{background:#f8fafc;font-weight:600}
-        .button-group{display:flex;gap:10px;flex-wrap:wrap}
-        .route-card{background:#fff;border-radius:12px;margin-bottom:25px;overflow:hidden}
-        .route-header{background:#1e293b;color:#fff;padding:15px 20px}
-        .route-header h3{margin:0;font-size:16px}
-        .route-header p{margin:5px 0 0;font-size:12px;opacity:0.9}
-        .route-map{height:350px;width:100%}
-        .route-summary{background:#f8fafc;padding:10px 15px;display:flex;gap:15px;font-size:12px;flex-wrap:wrap}
-        .route-stops-arrow{background:#f1f5f9;padding:10px 15px;font-size:13px;border-top:1px solid #e2e8f0;overflow-x:auto;white-space:nowrap}
-        .route-stops-arrow .marker{color:#e74c3c;font-weight:bold}
-        .route-stops-arrow .arrow{color:#3498db;margin:0 5px}
-        .route-stops-arrow .stop-weight{color:#64748b;font-size:11px}
-        .nav-buttons{text-align:center;margin:20px 0}
-        .nav-btn{padding:10px 20px;margin:0 10px;cursor:pointer;border:none;border-radius:8px;font-size:14px}
-        .route-counter{margin:0 15px;font-weight:bold}
-        @media(max-width:768px){.sidebar{display:none}.content{margin-left:0}}
-    </style>
-</head>
-<body>
-<div class="sidebar">
-    <h2>Unga Logistics</h2>
-    <a href="admin_dashboard.php">Dashboard</a>
-    <a href="vehicles.php">Vehicles</a>
-    <a href="deliveries.php">Deliveries</a>
-    <a href="drivers.php">Drivers</a>
-    <a href="ga_optimize.php" class="active">GA Optimization</a>
-    <a href="admin_notifications.php">Notifications</a>
-    <a href="reports.php">Reports</a>
-    <a href="admin_issues.php">Issues</a>
-    <a href="logout.php">Logout</a>
+<!-- Stats -->
+<div class="stats">
+    <div class="stat-card"><h3><?php echo $pending_count; ?></h3><p>Pending</p></div>
+    <div class="stat-card"><h3><?php echo $assigned_count; ?></h3><p>Assigned</p></div>
 </div>
-<div class="content">
-    <div class="header">
-        <h2>Genetic Algorithm Optimization</h2>
-        <div class="button-group">
-            <form method="POST"><button type="submit" name="run_ga" class="btn btn-ga">🚀 Run GA</button></form>
-            <form method="POST"><button type="submit" name="assign_routes" class="btn btn-assign">✓ Assign Routes</button></form>
-        </div>
-    </div>
-    
-    <?php if($message): ?>
-    <div class="message"><?php echo $message; ?></div>
-    <?php endif; ?>
-    
-    <div class="stats">
-        <div class="stat-box"><div class="stat-number"><?php echo $pending_count; ?></div><div>Pending</div></div>
-        <div class="stat-box"><div class="stat-number"><?php echo $assigned_count; ?></div><div>Assigned</div></div>
-    </div>
-    
-    <div class="section-title">📋 Pending Deliveries</div>
+
+<!-- Pending Deliveries Table -->
+<div class="glass-card">
+    <h3>📋 Pending Deliveries</h3>
     <div class="table-container">
         <table>
             <thead>
@@ -352,77 +282,99 @@ $assigned_count = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM deliveries 
                     <td><?php echo $row['weight_tonnes']; ?> t</td>
                 </tr>
                 <?php endwhile; else: ?>
-                <tr><td colspan="4" style="text-align:center;padding:40px;">No pending deliveries. Run GA to plan.</td></tr>
+                <tr><td colspan="4" style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);">No pending deliveries. Run GA to plan.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
-    
-    <?php if(!empty($route_details)): ?>
-    <div class="section-title">🗺️ Route Maps</div>
+</div>
+
+<!-- GA Buttons -->
+<div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+    <form method="POST" style="margin:0;">
+        <button type="submit" name="run_ga" class="btn" style="background: #d4af37; color: #1a202c; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">🚀 Run GA</button>
+    </form>
+    <form method="POST" style="margin:0;">
+        <button type="submit" name="assign_routes" class="btn" style="background: #48bb78; color: white; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">✓ Assign Routes</button>
+    </form>
+</div>
+
+<?php if($message): ?>
+<div style="background: rgba(72,187,120,0.2); color: #68d391; padding: 12px; border-radius: 8px; margin-bottom: 20px;"><?php echo $message; ?></div>
+<?php endif; ?>
+
+<!-- Route Maps -->
+<?php if(!empty($route_details)): ?>
+<div class="glass-card">
+    <h3>🗺️ Route Maps</h3>
     <?php $depot = ['lat' => -1.3167, 'lng' => 36.8500]; $total_routes = count($route_details); foreach($route_details as $index => $route): ?>
-    <div class="route-card" id="card<?php echo $index; ?>" style="display:<?php echo $index==0?'block':'none';?>">
-        <div class="route-header">
-            <h3>Route <?php echo $index+1; ?> of <?php echo $total_routes; ?> - <?php echo $route['vehicle']['plate_number']; ?> (<?php echo ucfirst($route['vehicle']['vehicle_type']); ?>)</h3>
-            <p>Driver: <?php echo $route['driver_name']; ?> | Weight: <?php echo $route['total_weight']; ?> t | Stops: <?php echo $route['num_stops']; ?> | Distance: <?php echo $route['total_distance']; ?> km</p>
+    <div class="route-card" id="card<?php echo $index; ?>" style="display:<?php echo $index==0?'block':'none';?>; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+        <div style="color: #ffffff; margin-bottom: 10px;">
+            <h3 style="margin:0; font-size:16px;">Route <?php echo $index+1; ?> of <?php echo $total_routes; ?> - <?php echo $route['vehicle']['plate_number']; ?> (<?php echo ucfirst($route['vehicle']['vehicle_type']); ?>)</h3>
+            <p style="margin:5px 0 0; font-size:12px; opacity:0.8;">Driver: <?php echo $route['driver_name']; ?> | Weight: <?php echo $route['total_weight']; ?> t | Stops: <?php echo $route['num_stops']; ?> | Distance: <?php echo $route['total_distance']; ?> km</p>
         </div>
-        <div class="route-stops-arrow">
-            <span class="marker">📍</span> <?php echo $route['stop_details_arrow']; ?>
+        <div class="route-stops-arrow" style="background: rgba(255,255,255,0.08); padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; overflow-x: auto; white-space: nowrap; color: #d4af37;">
+            <span style="color:#e74c3c; font-weight:bold;">📍</span> <?php echo $route['stop_details_arrow']; ?>
         </div>
-        <div id="map<?php echo $index; ?>" class="route-map"></div>
-        <div class="route-summary">
+        <div id="map<?php echo $index; ?>" style="height:350px; width:100%; border-radius:12px; margin-bottom:10px;"></div>
+        <div style="display:flex; gap:15px; font-size:12px; color:rgba(255,255,255,0.6); flex-wrap:wrap;">
             <span>📏 <?php echo $route['total_distance']; ?> km</span>
             <span>⛽ Fuel: KES <?php echo number_format($route['fuel_cost']); ?></span>
             <span>💰 Total: KES <?php echo number_format($route['total_cost']); ?></span>
         </div>
     </div>
     <?php endforeach; ?>
-    <div class="nav-buttons">
-        <button id="prevBtn" class="nav-btn" style="background:#64748b;color:#fff;">← Previous</button>
-        <span id="routeCounter" class="route-counter">Route 1 of <?php echo $total_routes; ?></span>
-        <button id="nextBtn" class="nav-btn" style="background:#10b981;color:#fff;">Next →</button>
+    <div style="text-align:center; margin-top:15px;">
+        <button id="prevBtn" class="btn" style="background: #64748b; color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin:0 10px;">← Previous</button>
+        <span id="routeCounter" style="color: #ffffff; margin:0 15px; font-weight:bold;">Route 1 of <?php echo $total_routes; ?></span>
+        <button id="nextBtn" class="btn" style="background: #d4af37; color: #1a202c; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin:0 10px;">Next →</button>
     </div>
-    <script>
-    var totalRoutes = <?php echo $total_routes; ?>, currentIndex = 0, maps = {}, depot = <?php echo json_encode($depot); ?>, routeDetails = <?php echo json_encode($route_details); ?>;
-    
-    function loadMap(index){
-        var route = routeDetails[index], mapId = 'map'+index;
-        for(var i=0;i<totalRoutes;i++){var card=document.getElementById('card'+i);if(card)card.style.display='none';}
-        document.getElementById('card'+index).style.display='block';
-        document.getElementById('routeCounter').innerHTML='Route '+(index+1)+' of '+totalRoutes;
-        document.getElementById('prevBtn').disabled=(index===0);
-        document.getElementById('nextBtn').disabled=(index===totalRoutes-1);
-        if(maps[mapId]){maps[mapId].invalidateSize();return;}
-        var map = L.map(mapId).setView([depot.lat, depot.lng], 8);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        var waypoints = [L.latLng(depot.lat, depot.lng)];
-        for(var i = 0; i < route.stops.length; i++) {
-            waypoints.push(L.latLng(route.stops[i].lat, route.stops[i].lng));
-            L.marker([route.stops[i].lat, route.stops[i].lng])
-                .bindPopup('<b>📍 Stop ' + (i+1) + ': ' + route.stops[i].customer_name + '</b><br>Weight: ' + route.stops[i].weight_tonnes + ' t')
-                .addTo(map);
-        }
-        
-        L.marker([depot.lat, depot.lng])
-            .bindPopup('<b>🏭 Depot (Start)</b>')
-            .addTo(map);
-            
-        L.Routing.control({
-            waypoints: waypoints,
-            router: L.Routing.osrmv1({serviceUrl: 'https://router.project-osrm.org/route/v1'}),
-            showAlternatives: false,
-            fitSelectedRoutes: true,
-            show: false,
-            lineOptions: {styles: [{color: '#10b981', weight: 5}]}
-        }).addTo(map);
-        maps[mapId]=map;
-    }
-    loadMap(0);
-    document.getElementById('prevBtn').onclick=function(){if(currentIndex>0){currentIndex--;loadMap(currentIndex);}};
-    document.getElementById('nextBtn').onclick=function(){if(currentIndex<totalRoutes-1){currentIndex++;loadMap(currentIndex);}};
-    </script>
-    <?php endif; ?>
 </div>
-</body>
-</html>
+<?php endif; ?>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<script>
+<?php if(!empty($route_details)): ?>
+var totalRoutes = <?php echo $total_routes; ?>, currentIndex = 0, maps = {}, depot = <?php echo json_encode($depot); ?>, routeDetails = <?php echo json_encode($route_details); ?>;
+
+function loadMap(index){
+    var route = routeDetails[index], mapId = 'map'+index;
+    for(var i=0;i<totalRoutes;i++){var card=document.getElementById('card'+i);if(card)card.style.display='none';}
+    document.getElementById('card'+index).style.display='block';
+    document.getElementById('routeCounter').innerHTML='Route '+(index+1)+' of '+totalRoutes;
+    document.getElementById('prevBtn').disabled=(index===0);
+    document.getElementById('nextBtn').disabled=(index===totalRoutes-1);
+    if(maps[mapId]){maps[mapId].invalidateSize();return;}
+    var map = L.map(mapId).setView([depot.lat, depot.lng], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    var waypoints = [L.latLng(depot.lat, depot.lng)];
+    for(var i = 0; i < route.stops.length; i++) {
+        waypoints.push(L.latLng(route.stops[i].lat, route.stops[i].lng));
+        L.marker([route.stops[i].lat, route.stops[i].lng])
+            .bindPopup('<b>📍 Stop ' + (i+1) + ': ' + route.stops[i].customer_name + '</b><br>Weight: ' + route.stops[i].weight_tonnes + ' t')
+            .addTo(map);
+    }
+    
+    L.marker([depot.lat, depot.lng])
+        .bindPopup('<b>🏭 Depot (Start)</b>')
+        .addTo(map);
+        
+    L.Routing.control({
+        waypoints: waypoints,
+        router: L.Routing.osrmv1({serviceUrl: 'https://router.project-osrm.org/route/v1'}),
+        showAlternatives: false,
+        fitSelectedRoutes: true,
+        show: false,
+        lineOptions: {styles: [{color: '#d4af37', weight: 5}]}
+    }).addTo(map);
+    maps[mapId]=map;
+}
+loadMap(0);
+document.getElementById('prevBtn').onclick=function(){if(currentIndex>0){currentIndex--;loadMap(currentIndex);}};
+document.getElementById('nextBtn').onclick=function(){if(currentIndex<totalRoutes-1){currentIndex++;loadMap(currentIndex);}};
+<?php endif; ?>
+</script>
+
+<?php include 'footer.php'; ?>
