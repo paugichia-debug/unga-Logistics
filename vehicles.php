@@ -66,7 +66,7 @@ include 'header.php';
 <div class="glass-card">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
         <h3 style="margin: 0; color: #ffffff;">🚛 Vehicle Management</h3>
-        <button onclick="document.getElementById('addForm').style.display='block'" class="btn" style="background: #d4af37; color: #1a202c; padding: 8px 20px;">+ Add Vehicle</button>
+        <button onclick="document.getElementById('addForm').style.display='block'" class="btn" style="background: #d4af37; color: #1a202c; padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer;">+ Add Vehicle</button>
     </div>
     
     <div id="addForm" class="glass-card" style="display: <?php echo $edit_vehicle ? 'block' : 'none'; ?>; margin-bottom: 15px; padding: 20px;">
@@ -106,12 +106,13 @@ include 'header.php';
                 </div>
                 <div>
                     <label style="color: rgba(255,255,255,0.7); font-size: 13px; display: block; margin-bottom: 5px;">Assign Driver</label>
+                    <!-- FIXED DROPDOWN -->
                     <select name="driver_id" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #ffffff; padding: 10px; border-radius: 8px; width: 100%;">
-                        <option value="">-- Unassigned --</option>
+                        <option value="" style="background: #1a202c; color: #ffffff;">-- Unassigned --</option>
                         <?php 
                         mysqli_data_seek($drivers, 0);
                         while($driver = mysqli_fetch_assoc($drivers)): ?>
-                            <option value="<?php echo $driver['id']; ?>" <?php echo ($edit_vehicle['driver_id'] ?? '') == $driver['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo $driver['id']; ?>" style="background: #1a202c; color: #ffffff;" <?php echo ($edit_vehicle['driver_id'] ?? '') == $driver['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($driver['username']); ?>
                             </option>
                         <?php endwhile; ?>
@@ -119,8 +120,8 @@ include 'header.php';
                 </div>
             </div>
             <div style="margin-top: 15px; display: flex; gap: 10px;">
-                <button type="submit" class="btn" style="background: #d4af37; color: #1a202c; padding: 10px 25px;">Save Vehicle</button>
-                <button type="button" onclick="document.getElementById('addForm').style.display='none'" class="btn btn-danger" style="padding: 10px 25px;">Cancel</button>
+                <button type="submit" class="btn" style="background: #d4af37; color: #1a202c; padding: 10px 25px; border: none; border-radius: 8px; cursor: pointer;">Save Vehicle</button>
+                <button type="button" onclick="document.getElementById('addForm').style.display='none'" class="btn btn-danger" style="padding: 10px 25px; border: none; border-radius: 8px; cursor: pointer; background: rgba(229,62,62,0.2); color: #fc8181;">Cancel</button>
             </div>
         </form>
     </div>
