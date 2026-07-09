@@ -19,7 +19,7 @@ if ($delivery_id == 0) {
     exit();
 }
 
-$query = "SELECT d.*, c.name as customer_name, c.address, c.phone, u.username as driver_name, v.plate_number 
+$query = "SELECT d.*, c.name as customer_name, c.address, u.username as driver_name, v.plate_number 
     FROM deliveries d 
     LEFT JOIN customers c ON d.customer_id = c.id 
     LEFT JOIN users u ON d.driver_id = u.id 
