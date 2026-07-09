@@ -67,7 +67,7 @@ if (!$delivery) {
             <?php if($delivery['delivered_at']): ?>
             <div class="row"><div class="label">Delivered At:</div><div><?php echo $delivery['delivered_at']; ?></div></div>
             <?php endif; ?>
-            <div class="row"><div class="label">Weight:</div><div><?php echo number_format($delivery['weight_kg']); ?> kg</div></div>
+            <div class="row"><div class="label">Weight:</div><div><?php echo number_format($delivery['weight_tonnes']); ?> tonnes</div></div>
             <?php if($delivery['time_window_end']): ?>
             <div class="row"><div class="label">Deadline:</div><div><?php echo date('H:i', strtotime($delivery['time_window_end'])); ?></div></div>
             <?php endif; ?>
