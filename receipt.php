@@ -12,7 +12,8 @@ if (!isset($_GET['id'])) {
 $delivery_id = $_GET['id'];
 $download = isset($_GET['download']) ? true : false;
 
-$query = mysqli_query($conn, "SELECT d.*, c.name as customer_name, c.address, c.phone, u.username as driver_name, v.plate_number 
+// FIXED: Changed weight_kg to weight_tonnes and added NULL check
+$query = mysqli_query($conn, "SELECT d.*, c.name as customer_name, c.address, c.phone, u.username as driver_name, v.plate_number, v.vehicle_type
     FROM deliveries d 
     LEFT JOIN customers c ON d.customer_id = c.id 
     LEFT JOIN users u ON d.driver_id = u.id 
@@ -112,8 +113,12 @@ $pdf->Cell(0, 7, 'DELIVERY DETAILS', 0, 1, 'L', true);
 $pdf->SetTextColor(0, 0, 0);
 $pdf->Ln(2);
 
-$pdf->ReceiptRow('Goods Description:', 'Maize Flour');
-$pdf->ReceiptRow('Weight:', number_format($delivery['weight_kg']) . ' kg');
+$pdf->ReceiptRow('Goods Description:', $delivery['goods_type'] ?? 'Maize Flour');
+
+// FIXED: Use weight_tonnes with NULL check
+$weight = isset($delivery['weight_tonnes']) ? (float)$delivery['weight_tonnes'] : 0;
+$pdf->ReceiptRow('Weight:', number_format($weight, 1) . ' tonnes');
+
 $pdf->ReceiptRow('Delivery Date:', date('d/m/Y', strtotime($delivery['delivery_date'])));
 if ($delivery['time_window_end']) {
     $pdf->ReceiptRow('Deadline:', date('H:i', strtotime($delivery['time_window_end'])));
@@ -121,11 +126,12 @@ if ($delivery['time_window_end']) {
 $pdf->Ln(3);
 
 // PENALTY ON RECEIPT
-if ($delivery['penalty_amount'] > 0) {
+$penalty_amount = isset($delivery['penalty_amount']) ? (float)$delivery['penalty_amount'] : 0;
+if ($penalty_amount > 0) {
     $pdf->SetFillColor(229, 62, 62);
     $pdf->SetTextColor(255, 255, 255);
     $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(0, 7, 'LATE DELIVERY PENALTY: KES ' . number_format($delivery['penalty_amount']), 0, 1, 'C', true);
+    $pdf->Cell(0, 7, 'LATE DELIVERY PENALTY: KES ' . number_format($penalty_amount), 0, 1, 'C', true);
     $pdf->Ln(3);
 }
 
@@ -136,8 +142,11 @@ $pdf->Cell(0, 7, 'DELIVERED BY', 0, 1, 'L', true);
 $pdf->SetTextColor(0, 0, 0);
 $pdf->Ln(2);
 
-$pdf->ReceiptRow('Driver Name:', $delivery['driver_name']);
-$pdf->ReceiptRow('Vehicle Registration:', $delivery['plate_number']);
+$pdf->ReceiptRow('Driver Name:', $delivery['driver_name'] ?? 'N/A');
+$pdf->ReceiptRow('Vehicle Registration:', $delivery['plate_number'] ?? 'N/A');
+if ($delivery['vehicle_type']) {
+    $pdf->ReceiptRow('Vehicle Type:', ucfirst($delivery['vehicle_type']));
+}
 $pdf->Ln(3);
 
 $pdf->SetFont('Arial', 'B', 10);
@@ -154,7 +163,7 @@ $pdf->Ln(2);
 
 $y_before = $pdf->GetY();
 
-if ($delivery['driver_signature_path'] && file_exists($delivery['driver_signature_path'])) {
+if (isset($delivery['driver_signature_path']) && $delivery['driver_signature_path'] && file_exists($delivery['driver_signature_path'])) {
     $pdf->Image($delivery['driver_signature_path'], 15, $y_before, 65, 20);
 } else {
     $pdf->SetFont('Arial', 'I', 8);
@@ -162,7 +171,7 @@ if ($delivery['driver_signature_path'] && file_exists($delivery['driver_signatur
     $pdf->Text(15, $y_before + 12, '_________________________');
 }
 
-if ($delivery['signature_path'] && file_exists($delivery['signature_path'])) {
+if (isset($delivery['signature_path']) && $delivery['signature_path'] && file_exists($delivery['signature_path'])) {
     $pdf->Image($delivery['signature_path'], 110, $y_before, 65, 20);
 } else {
     $pdf->SetFont('Arial', 'I', 8);
