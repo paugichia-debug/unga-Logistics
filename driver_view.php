@@ -37,10 +37,12 @@ if ($delivery['driver_id']) {
 }
 
 $plate_number = '';
+$vehicle_type = '';
 if ($delivery['vehicle_id']) {
-    $veh_res = mysqli_query($conn, "SELECT plate_number FROM vehicles WHERE id = " . $delivery['vehicle_id']);
+    $veh_res = mysqli_query($conn, "SELECT plate_number, vehicle_type FROM vehicles WHERE id = " . $delivery['vehicle_id']);
     $veh = mysqli_fetch_assoc($veh_res);
     $plate_number = $veh['plate_number'];
+    $vehicle_type = $veh['vehicle_type'];
 }
 ?>
 
@@ -73,7 +75,13 @@ if ($delivery['vehicle_id']) {
             <?php if($delivery['delivered_at']): ?>
             <div class="row"><div class="label">Delivered At:</div><div><?php echo $delivery['delivered_at']; ?></div></div>
             <?php endif; ?>
-            <div class="row"><div class="label">Weight:</div><div><?php echo number_format($delivery['weight_kg']); ?> kg</div></div>
+            <div class="row"><div class="label">Weight:</div><div>
+                <?php 
+                // FIXED: Use weight_tonnes with NULL check
+                $weight = isset($delivery['weight_tonnes']) ? (float)$delivery['weight_tonnes'] : 0;
+                echo number_format($weight, 1) . ' tonnes';
+                ?>
+            </div></div>
             <?php if($delivery['time_window_end']): ?>
             <div class="row"><div class="label">Deadline:</div><div><?php echo date('H:i', strtotime($delivery['time_window_end'])); ?></div></div>
             <?php endif; ?>
@@ -86,13 +94,13 @@ if ($delivery['vehicle_id']) {
             <h3>👤 Customer Details</h3>
             <div class="row"><div class="label">Name:</div><div><?php echo htmlspecialchars($delivery['customer_name']); ?></div></div>
             <div class="row"><div class="label">Address:</div><div><?php echo htmlspecialchars($delivery['address']); ?></div></div>
-            <div class="row"><div class="label">Phone:</div><div><?php echo $delivery['phone'] ?: 'N/A'; ?></div></div>
+            <!-- PHONE REMOVED -->
         </div>
         
         <div class="card">
             <h3>🚚 Delivery By</h3>
             <div class="row"><div class="label">Driver:</div><div><?php echo htmlspecialchars($driver_name); ?></div></div>
-            <div class="row"><div class="label">Vehicle:</div><div><?php echo htmlspecialchars($plate_number); ?></div></div>
+            <div class="row"><div class="label">Vehicle:</div><div><?php echo htmlspecialchars($plate_number); ?> <?php if($vehicle_type): ?>(<?php echo ucfirst($vehicle_type); ?>)<?php endif; ?></div></div>
         </div>
         
         <div class="back-link">
